@@ -1,3 +1,7 @@
+[TOC]
+
+
+
 ## 十一 方法
 
 + 方法是关联了`特定类型`的函数
@@ -39,7 +43,6 @@
   fixedPoint.moveBy(x: 2.0, y: 3.0) //调用的时候会报错
   ```
 
-  
 
 #### 1.3 在异变方法里指定自身 
 
@@ -77,7 +80,6 @@
   // ovenLight is now equal to .off
   ```
 
-  
 
 ### 2 类型方法
 
@@ -122,7 +124,6 @@
   }
   ```
 
-  
 
 ### 2 下标的用法
 
@@ -168,7 +169,6 @@
   }
   ```
 
-  
 
 ### 2 子类
 
@@ -208,7 +208,6 @@
   }
   ```
 
-  
 
 #### 3.3 重写属性
 
@@ -261,8 +260,6 @@
   final var ， final func ， final class func ， final subscript等
   ```
 
-  
-
 - 类定义中在` class` 关键字前面写` final` 修饰符(` final class `)标记一整个类为终点。此时创建继承于该类的子类时，编译报错。
 
 
@@ -298,7 +295,6 @@
   // prints "The default temperature is 32.0° Fahrenheit"
   ```
 
-  
 
 #### 1.2 默认的属性值
 
@@ -311,7 +307,6 @@
   //直接在声明属性的时候，为其指定一个默认值。同时也利用了类型推断机制
   ```
 
-  
 
 ### 2  自定义初始化
 
@@ -399,7 +394,6 @@
   // bodyTemperature.temperatureInCelsius is 37.0
   ```
 
-  
 
 #### 2.4 可选属性类型
 
@@ -425,7 +419,6 @@
   response在初始化期间设置并不合适，所以可以声明为可选类型，从而在后面合适的时机进行赋值
   ```
 
-  
 
 #### 2.5 在初始化中分配常量属性
 
@@ -449,7 +442,6 @@
   beetsQuestion.response = "I also like beets. (But not with cheese.)"
   ```
 
-  
 
 ### 3 默认初始化器
 
@@ -492,7 +484,6 @@
   //width:2.0 height=3.0
   ```
 
-  
 
 ### 4 值类型的初始化器委托
 
@@ -587,8 +578,6 @@
     每个类都有机会在新的实例准备使用之前来定制它的存储属性
     ```
 
-    
-
 + Swift编译器执行`四种`有效的`安全检查`来确保两段式初始化过程能够顺利完成(不符合编译器就报错)
 
   1. 指定初始化器必须保证在向上委托给父类初始化器之前，其所在类引入的所有属性都要初始化完成。
@@ -635,7 +624,6 @@
 
   + 指定初始化器，先初始化该类定义的存储属性，然后调用父类的指定初始化器，然后再定制属性。
 
-    
 
 #### 5.5 初始化器的继承和重写
 
@@ -728,7 +716,6 @@
   // prints "This is not a defined temperature unit, so initialization failed."
   ```
 
-  
 
 #### 6.2 带有原始值枚举的可失败初始化器
 
@@ -752,7 +739,6 @@
   // prints "This is not a defined temperature unit, so initialization failed."
   ```
 
-  
 
 #### 6.3 初始化失败的传递
 
@@ -803,7 +789,6 @@
   // prints "Unable to initialize one unnamed product"
   ```
 
-  
 
 #### 6.4 重写可失败初始化器
 
@@ -864,7 +849,6 @@
   
   ```
 
-  
 
 #### 6.5 可失败初始化器 init!
 
@@ -931,7 +915,6 @@
   // Prints "false"
   ```
 
-  
 
 ## 十五 反初始化
 
@@ -982,7 +965,6 @@
   //prints: BaseObject deinit
   ```
 
-  
 
 ## 十六 引用计数
 
@@ -1058,7 +1040,6 @@
   unit4A = nil
   ```
 
-  
 
 ### 4 解决实例之间的循环强引用
 
@@ -1068,7 +1049,6 @@
 
 + 如果引用始终有值，则可以使用unowned来代替
 
-  
 
 #### 4.1 弱引用
 
@@ -1099,9 +1079,6 @@
   //Apartment中可能没有tenant，那么使用weak来避免循环引用
   ```
 
-  
-
-  
 
 #### 4.2 无主引用
 
@@ -1260,7 +1237,6 @@
   //因为彼此强引用，所以实例无法释放，无法执行deinit方法
   ```
 
-  
 
 ### 6 解决闭包的循环强引用
 
@@ -1327,7 +1303,6 @@
   }
   ```
 
-  
 
 ## 十七 可选链
 
@@ -1411,7 +1386,6 @@
   // Prints "It was not possible to set the address."
   ```
 
-  
 
 ### 4 通过可选链调用方法
 
@@ -1505,7 +1479,6 @@
   }
   ```
 
-  
 
 ## 十八 错误处理
 
@@ -1561,9 +1534,9 @@
     class VendingMachine {
         var inventory = [
             "Candy Bar": Item(price: 12, count: 7),
-  
+      
             "Chips": Item(price: 10, count: 4),
-  
+      
             "Pretzels": Item(price: 7, count: 11)
         ]
         var coinsDeposited = 0
@@ -1584,6 +1557,7 @@
             print("Dispensing (name)")
         }
     }
+    ```
   ```
 
   + vend(itemNamed:)方法的实现使用了 guard语句来提前退出并抛出错误
@@ -1609,7 +1583,7 @@
             }
             //vend继续把错误传递给buyFavoriteSnack函数来抛出
         
-      ```
+  ```
 
 #### 2.2 使用 Do-Catch 处理错误 ????????????? 
 
@@ -1660,9 +1634,6 @@
 
 - 在不抛出错误的函数中， do-catch 分句就必须处理错误。在可抛出函数中，要么 do-catch 分句处理错误，要么调用者处理。如果错误被传递到了顶层生效范围但还是没有被处理，你就会得到一个运行时错误了
 
-  
-
-  
 
 #### 2.3 转换错误为可选项
 
