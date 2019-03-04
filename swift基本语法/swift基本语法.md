@@ -1,6 +1,10 @@
 [swift编程语言参考](https://www.cnswift.org)
 
 
+
+[TOC]
+
+
 ## 一 基本内容
 
 ### 1 常量和变量
@@ -765,7 +769,7 @@
   }
   ```
 
-+  enumerated()方法来遍历数组,enumerated() 返回数组中每一个元素的元组。
++ enumerated()方法来遍历数组,enumerated() 返回数组中每一个元素的元组。
 
   ```swift
   
@@ -779,7 +783,6 @@
   // Item 5: Bananas
   ```
 
-  
 
 ### 3 合集(Set)
 
