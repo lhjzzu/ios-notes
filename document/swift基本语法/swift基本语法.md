@@ -175,7 +175,6 @@
 
   ```swift
   var welcomeMessage: String = "str"
-  
   必须要赋值，这样才不会报错
   ```
 
@@ -985,7 +984,7 @@
   var favoriteGenres: Set<String> = ["Rock", "Classical", "Hip hop"]
   ```
 
-#### 3. 5访问和修改合集
+#### 3. 5 访问和修改合集
 
 + 要得出合集当中元素的数量，检查它的只读 count属性
 + 使用布尔量 isEmpty属性作为检查 count属性是否等于 0的快捷方式
