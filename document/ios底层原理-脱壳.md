@@ -203,3 +203,16 @@
 + dumpdecrypted: 属于动态脱壳，需要应用程序运行，只能解密可执行文件
 + frida-ios-dump: 属于动态脱壳, 需要应用程序运行, 不但能解密可执行文件，还能解密应用中动态库，扩展插件，以及watch应用等
 
+
+
+
+
+### 验证可执行文件是否已经脱壳
+
++ 通过otool命令行也可以：otool   -l   可执行文件路径   |   grep   crypt 
+
++ MachOView查看mach-o文件, Load Commands -> LC_ENCRYPTION_INFO -> Crypt ID的值，0代表未加密
+
+  ![](./images/脱壳11.png)
+
+  
