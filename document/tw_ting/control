@@ -1,9 +1,0 @@
-Package: com.hj.ting
-Name: tw_ting
-Depends: mobilesubstrate
-Version: 0.0.1
-Architecture: iphoneos-arm
-Description: An awesome MobileSubstrate tweak!
-Maintainer: lhj
-Author: lhj
-Section: Tweaks
