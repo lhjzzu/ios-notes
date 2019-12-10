@@ -61,7 +61,7 @@
   + 需要提供entitlements.plist,  embedded.mobileprovision文件路径
 + 上面两个工具只能对xxx.app进行重签名，不能对内部的动态库等进行重签名
 
-### * 简单的重签名过程
+###  简单的重签名过程
 
 1. 建立一个oc项目Test,用真机编译过后，打开Test.app。
 
@@ -124,17 +124,19 @@
 
 + insert_dylib的本质是往Mach-O文件的Load Command 中添加一个`LC_LOAD_DYLIB`或`LC_LOAD_WEAK_DYLIB`
 
-+ 可以通过otool查看Mach-O的动态库依赖信息
+  
 
-   ```shell
-  $ otool -L Mach-O文件
-   ```
+### 可以通过otool查看Mach-O的动态库依赖信息
+
+```shell
+$ otool -L Mach-O文件
+```
 
 ### 更改动态库所依赖的其他动态库的地址
 
 + 可以使用install_name_tool修改Mach-O中动态库的加载地址
 
-   ```
+   ```shell
   $ install_name_tool -change 旧地址 新地址 Mach-O文件
    ```
 
@@ -148,7 +150,7 @@
   + @executable_path代表可执行文件所在目录
   + @loader_path代表动态库所在的目录
 
-### * 对AppStore应用进行重签名, 安装到非越狱手机
+###  对AppStore应用进行重签名, 安装到非越狱手机
 
 1. 下载"兰迪少儿英语"到越狱的手机
 
@@ -257,3 +259,14 @@
    ```
 
 10. 压缩Payload文件夹，然后进行重命名为landi.ipa，  即可安装到非越狱的手机上。
+
+### 问题
+
+1. 安装成功后运行crash，crash文件中AFNetworking: mremap_encrypted() => -1, errno=12
+
+   ```
+   1. 这表示AFNetworking仍然处于加密状态
+   2. 需要用frida-ios-dump进行解密
+   ```
+
+   
