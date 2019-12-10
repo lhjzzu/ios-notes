@@ -145,17 +145,12 @@
      - 先处理mach_header或mach_header_64
      - 然后处理load commands,遍历load commands找到加密段，查看是否加密
 
-   4. Makefile文件
+4. Makefile文件
 
-      ![](./images/命令行工具16.png)
+   ![](./images/命令行工具16.png)
 
-      
+5. xcode编译时，执行make操作。所以在Release文件夹生成的MJAppTools的权限是没有问题的
 
-   5. xcode编译时，执行make操作。所以在Release文件夹生成的MJAppTools的权限是没有问题的
-
-      ![](./images/命令行工具17.png)
-
-      
+   ![](./images/命令行工具17.png)
 
    
-
