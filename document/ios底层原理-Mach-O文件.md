@@ -293,7 +293,7 @@
 
   + otool：查看Mach-O特定部分和段的内容
 
-        ```shell
+    ```shell
       -f print the fat headers
     	-a print the archive header
     	-h print the mach header
@@ -326,11 +326,10 @@
     	-P print the info plist section as strings
     	-C print linker optimization hints
     	--version print the version of /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/otool
-        ```
-
-    1. 打印fat header : `$  otool -f 文件路径`
-
-       ```shell
+    ```
+1. 打印fat header : `$  otool -f 文件路径`
+    
+   ```shell
        $ otool -f TestApp
        
        Fat headers
@@ -351,10 +350,10 @@
            size 623712
            align 2^14 (16384)
        ```
-
-    2. 打印mach header：` $ otool -h 文件路径`
-
-       ```shell
+    
+2. 打印mach header：` $ otool -h 文件路径`
+    
+   ```shell
        $   otool -h TestApp
        Mach header
              magic cputype cpusubtype  caps    filetype ncmds sizeofcmds      flags
@@ -363,10 +362,10 @@
              magic cputype cpusubtype  caps    filetype ncmds sizeofcmds      flags
         0xfeedfacf 16777228          0  0x00           2    26       3736 0x00200085
        ```
-
-    3. 打印load commands: `$ otool -l 文件路径`
-
-       ```shell
+    
+3. 打印load commands: `$ otool -l 文件路径`
+    
+   ```shell
        $ otool -l TestApp
        
        TestApp (architecture armv7):
@@ -401,10 +400,10 @@
              cryptid 0
         ## 查看是否加密
        ```
-
-    4. 打印依赖的动态库: ` $ otool -L 文件路径`
-
-       ```shell
+    
+4. 打印依赖的动态库: ` $ otool -L 文件路径`
+    
+   ```shell
        $ otool -L TestApp
        
        TestApp (architecture armv7):
@@ -416,32 +415,33 @@
        	.....
        	/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation (compatibility version 150.0.0, current version 1570.15.0)
        ```
-
-       
-
-  + lipo：常用于多架构Mach-O文件的处理
-
-    + 查看架构信息：lipo  -info  文件路径
-
-      ```shell
+    
+   
+    
++ lipo：常用于多架构Mach-O文件的处理
+  
+  + 查看架构信息：lipo  -info  文件路径
+  
+    ```shell
       $ lipo -info  TestApp
       Architectures in the fat file: TestApp are: armv7 arm64
       ```
-
-    + 导出某种特定架构：lipo  文件路径  -thin  架构类型  -output  输出文件路径
-
-      ```shell
+  
+  + 导出某种特定架构：lipo  文件路径  -thin  架构类型  -output  输出文件路径
+  
+    ```shell
       $ lipo TestApp -thin armv7 -output TestApp_armv7
       $ lipo TestApp -thin arm64 -output TestApp_arm64
       ```
-
-    + 合并多种架构：lipo  -create 文件路径1  文件路径2  -output  输出文件路径
-
-      ```shell
+  
+  + 合并多种架构：lipo  -create 文件路径1  文件路径2  -output  输出文件路径
+  
+    ```shell
       $ lipo -create TestApp_armv7 TestApp_arm64 -output TestApp_2
       ```
-
+  
 + GUI工具
+  
   - MachOView（https://github.com/gdbinit/MachOView）
 
 ### Mach-O的基本结构
