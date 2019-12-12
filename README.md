@@ -1,2 +1,20 @@
-# ios-notes
-iOS开发笔记
+##  iOS学习笔记
+
++ [ios底层原理-越狱常见问题](./document/ios底层原理-越狱常见问题.md)
++ [ios底层原理-越狱环境搭建](./document/ios底层原理-越狱环境搭建.md)
++ [ios底层原理-ssh登录iPhone](./document/ios底层原理-ssh登录iPhone.md)
++ [ios底层原理-Reveal](./document/ios底层原理-Reveal.md)
++ [ios底层原理-Cycript](./document/ios底层原理-Cycript.md)
++ [ios底层原理-脱壳.md](./document/ios底层原理-脱壳.md)
++ [ios底层原理-theos](./document/ios底层原理-theos.md)
++ [ios底层原理-动态库共享缓存-dsc](./document/ios底层原理-动态库共享缓存-dsc.md)
++ [ios底层原理-Mach-O工具](./document/ios底层原理-Mach-O工具.md)
++ [ios底层原理-Mach-O文件1](./document/ios底层原理-Mach-O文件1.md)
++ [ios底层原理-Mach-O文件2](./document/ios底层原理-Mach-O文件2.md)
++ [ios底层原理-命令行工具开发](./document/ios底层原理-命令行工具开发.md)
++ [ios底层原理-动态调试](./document/ios底层原理-动态调试.md)
++ [ios底层原理-LLDB](./document/ios底层原理-LLDB.md)
++ [ios底层原理-动态调试](./document/ios底层原理-动态调试.md)
++ [ios底层原理-ASLR](./document/ios底层原理-ASLR.md)
++ [ios底层原理-重签名](./document/ios底层原理-重签名.md)
+
