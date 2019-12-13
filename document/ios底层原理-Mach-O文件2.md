@@ -270,6 +270,8 @@ struct segment_command_64 { /* for 64-bit architectures */
 
 ##### __PAGEZORE
 
+- 该段的其中一个作用是:当对象置为NULL，直接将指针指向该区域。
+
 ![](./images/mach-o文件15.png)
 
 + cmd: LC_SEGMENT_64
