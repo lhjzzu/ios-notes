@@ -32,7 +32,7 @@ label2.text = @"label2";
 1. 设置label2的contentHuggingPriority的优先级低，那么label是内容被环抱的
 ```
 
-![](./image/autoLayout0.png)
+![](./images/autoLayout0.png)
 
 #### Content Compression Resistance Priority
 
@@ -58,7 +58,7 @@ label2.text = @"hello，我是第二个label，谢谢";
 1. label2的优先级高，所以label2的内容压缩的阻力更大，所以label2完整显示，label的内容被压缩
 ```
 
-![](./image/autoLayout1.png)
+![](./images/autoLayout1.png)
 
 这两个优先级都是跟view的intrinsicContentSize(内在内容的大小)属性相关的 
 
