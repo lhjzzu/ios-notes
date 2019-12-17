@@ -243,6 +243,35 @@
 
     ![](./images/LLDB20.png)
 
+
+
+
+
+### 方法调用时，打印相关参数
+
++ 因为oc是通过objc_msgSend(self, cmd, argm1, argm2...)调用,x0~x7都可传递参数，更多的参数用内存栈来传递。
+
++ `po $x0`:打印方法调用者
+
+  ```shell
+  (lldb) po vc
+  <ViewController: 0x101311ea0>
+  
+  (lldb) register write x1 0x101311ea0
+  (lldb) po $x1
+  <ViewController: 0x101311ea0>
+  ```
+
++ `x/s $x1`:打印方法名
++ `po $x2`: 打印参数。（以此类推，x3，x4也是参数）
++ 如果是非arm64, 寄存器就是r0, r1, r2
+
+### register
+
++ `register read`:读所有的寄存器
++ `register read 某个寄存器`:读某个寄存器的值
++ `register write 某个寄存器 值`:往某个寄存器的写值
+
 ### 小技巧
 
 + 敲Enter, 会自动执行上次的命令

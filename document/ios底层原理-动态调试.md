@@ -135,3 +135,14 @@
      ```
 
    + 接下来就可以使用LLDB来调试APP了
+
+
+
+### 通过debugserver启动App
+
+```
+$ debugserver -x auto *:端口号 app的可执行文件路径
+```
+
+![](./images/LLDB21.png)
+
