@@ -429,3 +429,107 @@
 
    ![](./images/arm61.png)
 
+### Hopper修改App汇编代码
+
+> 1. 去掉弹框
+> 2. age改为20
+> 3. 修改后只能装到越狱的手机中，因为签名已经被破坏。要装到非越狱手机中需要进行重签名
+
+1. 建立iOS测试工程代码如下
+
+   ```objective-c
+   #import "ViewController.h"
+   #import <objc/runtime.h>
+   #import <malloc/malloc.h>
+   
+   @interface ViewController ()
+   @property (weak, nonatomic) IBOutlet UILabel *label;
+   @property (nonatomic, assign) int age;
+   @property (nonatomic, weak) UIAlertAction *action;
+   @end
+   
+   @implementation ViewController
+   
+   /*
+    1.不再弹框
+    2.my age is 20
+    */
+   
+   int age = 10;
+   
+   - (void)viewDidLoad {
+       [super viewDidLoad];
+   
+       self.label.text = [NSString stringWithFormat:@"my age is %d", age];
+   }
+   
+   - (void)show
+   {
+       __weak typeof(self) weakSelf = self;
+       
+       UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"提示" message:@"请输入密码" preferredStyle:UIAlertControllerStyleAlert];
+       [ac addTextFieldWithConfigurationHandler:^(UITextField * _Nonnull textField) {
+           [[NSNotificationCenter defaultCenter] addObserver:weakSelf selector:@selector(textFieldChanged:) name:UITextFieldTextDidChangeNotification object:textField];
+       }];
+       UIAlertAction *action = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil];
+       action.enabled = NO;
+       [ac addAction:action];
+       self.action = action;
+       [self presentViewController:ac animated:YES completion:nil];
+   }
+   
+   - (void)viewDidAppear:(BOOL)animated
+   {
+       [super viewDidAppear:animated];
+       
+       [self show];
+   }
+   
+   
+   - (void)didReceiveMemoryWarning {
+       [super didReceiveMemoryWarning];
+       // Dispose of any resources that can be recreated.
+   }
+   
+   - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+   {
+       
+   }
+   
+   #pragma mark - UITextFieldDelegate
+   - (void)textFieldChanged:(NSNotification *)note
+   {
+       self.action.enabled = [((UITextField *)note.object).text isEqualToString:@"12345"];
+   }
+   @end
+   ```
+
+2. 运行到越狱手机上，然后从手机上导出可执行文件
+
+   ![](./images/arm62.png)
+
+3. hopper打开应用，假如经过分析定位到弹窗代码如下
+
+   ![](./images/arm63.png)
+
+   ![](./images/arm64.png)
+
+4. 利用MachOView定位全局变量的位置
+
+   ![](./images/arm65.png)
+
+   - 偏移量为0x90D8， 其在hopper中的地址为0x1000090D8
+
+5. 在hopper中定位age,并修改其值
+
+   ![](./images/arm66.png)
+
+   ![](./images/arm67.png)
+
+   ![](./images/arm68.png)
+
+   ![](./images/arm69.png)
+
+6. 生成新的可执行文件, 然后将新的可执行文件装到手机中即可
+
+   ![](./images/arm70.png)
