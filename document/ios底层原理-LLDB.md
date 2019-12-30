@@ -272,6 +272,26 @@
 + `register read 某个寄存器`:读某个寄存器的值
 + `register write 某个寄存器 值`:往某个寄存器的写值
 
+
+
+### 操作内存
+
+![](./images/LLDB22.png)
+
+![](./images/LLDB23.png)
+
+![](./images/LLDB24.png)
+
+![](./images/LLDB25.png)
+
+![](./images/LLDB26.png)
+
+![](./images/LLDB27.png)
+
+![](./images/LLDB28.png)
+
+
+
 ### 小技巧
 
 + 敲Enter, 会自动执行上次的命令
