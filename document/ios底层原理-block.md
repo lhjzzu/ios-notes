@@ -464,7 +464,7 @@
 
 72-block09-copy.vep
 
-### __weak问题解决
+### __weak编译问题解决
 
 + 在使用clang转换OC为C++代码时，可能会遇到以下问题
   - cannot create __weak reference in file using manual reference
@@ -675,7 +675,3 @@
             [array addObject:@1];
         };
     ```
-
-    
-
-085-block22-循环引用02-ARC01.vep
