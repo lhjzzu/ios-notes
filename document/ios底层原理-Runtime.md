@@ -837,8 +837,17 @@ typedef enum {
 ![](./images/runtime30.png)
 
 + 开发者可以在forwardInvocation:方法中自定义任何逻辑
-+ 以上方法都有对象方法、类方法2个版本（前面可以是加号+，也可以是减号-
 
++ 以上方法都有对象方法、类方法2个版本（前面可以是加号+，也可以是减号-)
+
++ 消息转发会调用Core Foundation的` __forwarding`__函数
+
+  ![](./images/runtime31.png)
+
++ 如果执行过消息转发的话，下次再执行该方法会直接走消息转发流程
+
+  ![](./images/runtime32.png)
+  
 + 其他对象来处理这个消息
 
   ```objc
@@ -895,6 +904,7 @@ typedef enum {
   
   + (void)forwardInvocation:(NSInvocation *)anInvocation
   {
+      //可以实现这个方法，来防止找不到方法造成的crash
       NSLog(@"1123");
   }
   @end
@@ -1085,8 +1095,10 @@ typedef enum {
    	mov	fp, sp
    
    	// save parameter registers: x0..x8, q0..q7
-   	//寄存器保护
+   	
+     //开辟空间
    	sub	sp, sp, #(10*8 + 8*16)
+     //寄存器保护
    	stp	q0, q1, [sp, #(0*16)]
    	stp	q2, q3, [sp, #(2*16)]
    	stp	q4, q5, [sp, #(4*16)]
@@ -1098,8 +1110,11 @@ typedef enum {
    	str	x8,     [sp, #(8*16+8*8)]
    
    	// receiver and selector already in x0 and x1
+     // x0: receiver  x1: selector x16: class x2: class
    	mov	x2, x16
    	// 跳转_class_lookupMethodAndLoadCache3函数
+     //_class_lookupMethodAndLoadCache3需要三个参数"id obj, SEL sel, Class cls"
+     //正好存储在x0，x1,x2中
    	bl	__class_lookupMethodAndLoadCache3
    
    	// imp in x0
@@ -1117,6 +1132,7 @@ typedef enum {
    	ldp	x6, x7, [sp, #(8*16+6*8)]
    	ldr	x8,     [sp, #(8*16+8*8)]
    
+     //恢复堆栈平衡
    	mov	sp, fp
    	ldp	fp, lr, [sp], #16
    
@@ -1133,7 +1149,7 @@ typedef enum {
    }
    ```
 
-4. lookUpImpOrForward:消息发送，动态解析，消息转发
+4. lookUpImpOrForward分为三个阶段:`消息发送`，`动态解析`，`消息转发`
 
    ```c
    IMP lookUpImpOrForward(Class cls, SEL sel, id inst, 
@@ -1167,6 +1183,7 @@ typedef enum {
    
        if (initialize  &&  !cls->isInitialized()) {
            runtimeLock.unlockRead();
+           //第一次接收到消息时, 处理initialize
            _class_initialize (_class_getNonMetaClass(cls, inst));
            runtimeLock.read();
            // If sel == initialize, _class_initialize will send +initialize and 
@@ -1179,6 +1196,7 @@ typedef enum {
     retry:    
        runtimeLock.assertReading();
        // Try this class's cache.
+       // 第一阶段:消息发送
        // 从缓存中查找方法
        imp = cache_getImp(cls, sel);
        // 如果找到imp，返回imp
@@ -1240,6 +1258,7 @@ typedef enum {
        }
    
        // No implementation found. Try method resolver once.
+       // 第二阶段:动态解析
        // 如果没有找到实现，那么尝试一次动态方法解析，并重新走消息转发机制
        if (resolver  &&  !triedResolver) {
            runtimeLock.unlockRead();
@@ -1254,82 +1273,877 @@ typedef enum {
    
        // No implementation found, and method resolver didn't help. 
        // Use forwarding.
+       // 第三阶段:消息转发
        // 进入消息转发流程
        imp = (IMP)_objc_msgForward_impcache;
-       //缓存到cls中
+       //将imp缓存到cls中,下次从缓存中取出_objc_msgForward_impcache,直接走消息转发流程
        cache_fill(cls, sel, imp, inst);
     done:
        runtimeLock.unlockRead();
    
        return imp;
-   }
+}
    
    ```
    
+5. 从传入的类的方法列表搜索方法
+
+   ```objc
+   static method_t *
+   getMethodNoSuper_nolock(Class cls, SEL sel)
+   {
+       runtimeLock.assertLocked();
+   
+       assert(cls->isRealized());
+       // fixme nil cls? 
+       // fixme nil sel?
+       // 拿到class_rw_t中的方法列表,进行遍历
+       for (auto mlists = cls->data()->methods.beginLists(), 
+                 end = cls->data()->methods.endLists(); 
+            mlists != end;
+            ++mlists)
+       {
+           method_t *m = search_method_list(*mlists, sel);
+           if (m) return m;
+       }
+   
+       return nil;
+   }
+   ```
+
+6. 将方法缓存到receiver的isa指向的类中
+
+   ```c
+   log_and_fill_cache(Class cls, IMP imp, SEL sel, id receiver, Class implementer)
+   {
+   #if SUPPORT_MESSAGE_LOGGING
+       if (objcMsgLogEnabled) {
+           bool cacheIt = logMessageSend(implementer->isMetaClass(), 
+                                         cls->nameForLogging(),
+                                         implementer->nameForLogging(), 
+                                         sel);
+           if (!cacheIt) return;
+       }
+   #endif
+       //缓存方法到cls中
+       cache_fill (cls, sel, imp, receiver);
+   }
+   
+   void cache_fill(Class cls, SEL sel, IMP imp, id receiver)
+   {
+   #if !DEBUG_TASK_THREADS
+       mutex_locker_t lock(cacheUpdateLock);
+      //缓存方法到cls中
+       cache_fill_nolock(cls, sel, imp, receiver);
+   #else
+       _collecting_in_critical();
+       return;
+   #endif
+   }
+   
+   static void cache_fill_nolock(Class cls, SEL sel, IMP imp, id receiver)
+   {
+       cacheUpdateLock.assertLocked();
+   
+       // Never cache before +initialize is done
+       if (!cls->isInitialized()) return;
+   
+       // Make sure the entry wasn't added to the cache by some other thread 
+       // before we grabbed the cacheUpdateLock.
+       if (cache_getImp(cls, sel)) return;
+   
+       cache_t *cache = getCache(cls);
+       cache_key_t key = getKey(sel);
+   
+       // Use the cache as-is if it is less than 3/4 full
+       mask_t newOccupied = cache->occupied() + 1;
+       mask_t capacity = cache->capacity();
+       if (cache->isConstantEmptyCache()) {
+           // Cache is read-only. Replace it.
+           cache->reallocate(capacity, capacity ?: INIT_CACHE_SIZE);
+       }
+       else if (newOccupied <= capacity / 4 * 3) {
+           // Cache is less than 3/4 full. Use it as-is.
+       }
+       else {
+           // Cache is too full. Expand it.
+           cache->expand();
+       }
+   
+       // Scan for the first unused slot and insert there.
+       // There is guaranteed to be an empty slot because the 
+       // minimum size is 4 and we resized at 3/4 full.
+       // 缓存到cache中
+       bucket_t *bucket = cache->find(key, receiver);
+       if (bucket->key() == 0) cache->incrementOccupied();
+       bucket->set(key, imp);
+   }
+   
+   ```
+
+7. 动态解析
+
+   ```c++
+   void _class_resolveMethod(Class cls, SEL sel, id inst)
+   {
+       if (! cls->isMetaClass()) {
+           // try [cls resolveInstanceMethod:sel]
+           //实例方法动态解析时，调用_class_resolveInstanceMethod
+           _class_resolveInstanceMethod(cls, sel, inst);
+       } 
+       else {
+           // try [nonMetaClass resolveClassMethod:sel]
+           // and [cls resolveInstanceMethod:sel]
+           // 类方法动态解析时，调用_class_resolveClassMethod
+           _class_resolveClassMethod(cls, sel, inst);
+           // 如果没有找到方法实现
+           if (!lookUpImpOrNil(cls, sel, inst, 
+                               NO/*initialize*/, YES/*cache*/, NO/*resolver*/)) 
+           {   
+               //调用_class_resolveInstanceMethod
+               _class_resolveInstanceMethod(cls, sel, inst);
+           }
+       }
+   }
+   ```
+
+8. 消息转发流程
+
+   ```c
+   	STATIC_ENTRY __objc_msgForward_impcache
+   	// Method cache version
+   	
+   	// THIS IS NOT A CALLABLE C FUNCTION
+   	// Out-of-band condition register is NE for stret, EQ otherwise.
+   
+   	MESSENGER_START
+   	nop
+   	MESSENGER_END_SLOW
+   
+   	jne	__objc_msgForward_stret
+   	jmp	__objc_msgForward
+   	
+   	END_ENTRY _objc_msgForward_impcache
+       
+    __objc_msgForward_impcache最终会调用到__forwarding__方法
+   ```
+
+   ```objc
+   __forwarding__的伪代码
+     
+   int __forwarding__(void *frameStackPointer, int isStret) {
+       id receiver = *(id *)frameStackPointer;
+       SEL sel = *(SEL *)(frameStackPointer + 8);
+       const char *selName = sel_getName(sel);
+       Class receiverClass = object_getClass(receiver);
+   
+     // 1. 先调用forwardingTargetForSelector:
+       if (class_respondsToSelector(receiverClass, @selector(forwardingTargetForSelector:))) {
+           id forwardingTarget = [receiver forwardingTargetForSelector:sel];
+           if (forwardingTarget && forwardingTarget != receiver) {
+               return objc_msgSend(forwardingTarget, sel, ...);
+           }
+       }
+   
+       // 2. 再调用methodSignatureForSelector获取方法签名后再调用 forwardInvocation
+       if (class_respondsToSelector(receiverClass, @selector(methodSignatureForSelector:))) {
+           NSMethodSignature *methodSignature = [receiver methodSignatureForSelector:sel];
+           if (methodSignature && class_respondsToSelector(receiverClass, @selector(forwardInvocation:))) {
+               NSInvocation *invocation = [NSInvocation _invocationWithMethodSignature:methodSignature frame:frameStackPointer];
+   
+               [receiver forwardInvocation:invocation];
+   
+               void *returnValue = NULL;
+               [invocation getReturnValue:&value];
+               return returnValue;
+           }
+       }
+   
+       //3. 调用doesNotRecognizeSelector:方法,产生crash
+       if (class_respondsToSelector(receiverClass,@selector(doesNotRecognizeSelector:))) {
+           [receiver doesNotRecognizeSelector:sel];
+       }
+       // The point of no return.
+       kill(getpid(), 9);
+   }
+   ```
+
+   
+
+### 添加动态方法
+
+![](./images/runtime33.png)
+
++ `@synthesize age = _age `为age属性生成一个_age的成员变量,并自动生成getter,setter方法
+
++ @dynamic的用法
+
+  ```objc
+  
+  // 提醒编译器不要自动生成setter和getter的实现、不要自动生成成员变量
+  @dynamic age;
+  void setAge(id self, SEL _cmd, int age)
+  {
+      NSLog(@"age is %d", age);
+  }
+  
+  int age(id self, SEL _cmd)
+  {
+      return 120;
+  }
+  
+  + (BOOL)resolveInstanceMethod:(SEL)sel
+  {
+      if (sel == @selector(setAge:)) {
+          class_addMethod(self, sel, (IMP)setAge, "v@:i");
+          return YES;
+      } else if (sel == @selector(age)) {
+          class_addMethod(self, sel, (IMP)age, "i@:");
+          return YES;
+      }
+      return [super resolveInstanceMethod:sel];
+  }
+  ```
+
+  
+
+### 生成NSMethodSignature
+
+![](./images/runtime34.png)
+
+### super的本质
+
++ super调用方法的本质是，从对象的父类开始中搜索方法
+
+#### 从编译的角度分析
+
+1. 测试代码如下
+
+   ```objc
+   //MJPerson.h
+   @interface MJPerson : NSObject
+   - (void)run;
+   @end
+   
+   //MJPerson.m
+   @implementation MJPerson
+   - (void)run
+   {
+       NSLog(@"%s", __func__);
+   }
+   @end
+   
+   @interface MJStudent : MJPerson
+   
+   @end
+   
+   @implementation MJStudent
+   - (void)run
+   {
+       // super调用的receiver仍然是MJStudent对象
+       [super run];
+    //  struct objc_super arg = {self, [MJPerson class]};
+   //   objc_msgSendSuper(arg, @selector(run));
+   }
+   @end
+   ```
+
+2. clang编译器编译
+
+   ```shell
+   $ xcrun  -sdk  iphoneos  clang  -arch  arm64  -rewrite-objc MJStudent.m -o MJStudent-arm64.cpp
+   ```
+
+   ```c++
+   struct objc_super {
+       __attribute__((objc_ownership(none))) _Nonnull id receiver;
+       __attribute__((objc_ownership(none))) _Nonnull Class super_class;
+   };
+   
+   static void _I_MJStudent_run(MJStudent * self, SEL _cmd) {
+       //整理前
+       //((void (*)(__rw_objc_super *, SEL))(void *)objc_msgSendSuper)((__rw_objc_super){(id)self, (id)class_getSuperclass(objc_getClass("MJStudent"))}, sel_registerName("run"));
+        //整理后
+        objc_super super = {self, class_getSuperclass(objc_getClass("MJStudent"))}
+                         = {self，[MJPerson class]}
+        objc_msgSendSuper(super, sel_registerName("run"));
+   }
+   ```
+
+3. _objc_msgSendSuper
+
+   ```objc
+     ENTRY _objc_msgSendSuper
+   	UNWIND _objc_msgSendSuper, NoFrame
+   	MESSENGER_START
+   
+     //1. x0:real receiver  x16:class, class == receiver对应类的superclass
+   	ldp	x0, x16, [x0]		
+     //2. 此时从superclass中开始执行消息机制
+   	CacheLookup NORMAL
+   	END_ENTRY _objc_msgSendSuper
+   ```
+
+#### 从汇编的角度分析
+
+1. 对于 student调用run方法,调试时汇编如下
+
+   ![](./images/runtime35.png)
+
+   - 可知，实际调用的objc_msgSendSuper2
+   - 手动编译的代码仅供参考，与实际的情况可能会有细微的差异
+
+2. objc_msgSendSuper2的arm64汇编代码如下
+
+   ```objc
+     ENTRY _objc_msgSendSuper2
+   	UNWIND _objc_msgSendSuper2, NoFrame
+   	MESSENGER_START
+   
+     //1. x0: real receiver, x16 = class
+   	ldp	x0, x16, [x0]		
+     //2. #SUPERCLASS为#0x8 
+     //   x16指向的内存偏移8个字节后，取8个字节放在x16中
+     //   此时x16中的值为superclass
+   	ldr	x16, [x16, #SUPERCLASS]	
+     //3. 此时从superclass中开始执行消息机制
+   	CacheLookup NORMAL
+   
+   	END_ENTRY _objc_msgSendSuper2
+   ```
+
+### 消息转发的应用
+
++ 如果方法找不到，则打印出来上传，但是不crash
+
+  ```objc
+  @interface MJPerson : NSObject
+  - (void)run;
+  - (void)test;
+  - (void)other;
+  @end
+  @implementation MJPerson
+  
+  - (void)run
+  {
+      NSLog(@"run-123");
+  }
+  
+  - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+  {
+      // 本来能调用的方法
+      if ([self respondsToSelector:aSelector]) {
+          return [super methodSignatureForSelector:aSelector];
+      }
+      
+      // 找不到的方法
+      return [NSMethodSignature signatureWithObjCTypes:"v@:"];
+  }
+  
+  // 找不到的方法，都会来到这里
+  - (void)forwardInvocation:(NSInvocation *)anInvocation
+  {
+      NSLog(@"找不到%@方法", NSStringFromSelector(anInvocation.selector));
+  }
+  @end
+  ```
 
 
-109-Runtime21-objc_msgSend04-动态方法解析01.vep
 
-110-Runtime21-objc_msgSend04-动态方法解析02.vep
+### LLVM的中间代码
 
-111-Runtime21-objc_msgSend04-动态方法解析03.vepz
++ Objective-C在变为机器代码之前，会被LLVM编译器转换为中间代码（Intermediate Representation）
 
-day14
++ 可以使用以下命令行指令生成中间代码
 
-112-Runtime24-objc_msgSend07-消息转发01.vep
+  - clang -emit-llvm -S main.m
 
-113-Runtime25-objc_msgSend08-消息转发02.vep
++ 语法简介
 
-114-Runtime26-objc_msgSend09-消息转发03.vep
+  - @ - 全局变量
+  - % - 局部变量
+  - alloca - 在当前执行的函数的堆栈帧中分配内存，当该函数返回到其调用者时，将自动释放内存
+  - i32 - 32位4字节的整数
+  - align - 对齐
+  - load - 读出，store 写入
+  - icmp - 两个整数值比较，返回布尔值
+  - br - 选择分支，根据条件来转向label，不根据条件跳转的话类似 goto
+  - label - 代码标签
+  - call - 调用函数
 
-115-Runtime27-objc_msgSend10-消息转发04.vep
++ 具体可以参考官方文档：https://llvm.org/docs/LangRef.html
 
-116-Runtime28-objc_msgSend11-消息转发05.vep
+  
 
-117-Runtime29-objc_msgSend12-总结
+###runtime API-类
 
-118-Runtime30-super01
++ 动态创建一个类（参数：父类，类名，额外的内存空间）
 
-119-Runtime31-super02
+  ```objc
+  Class objc_allocateClassPair(Class superclass, const char *name, size_t extraBytes)
+  ```
 
-120-Runtime32-答疑.vep
++ 注册一个类（要在类注册之前添加成员变量）
 
-day15
+  ```objc
+  void objc_registerClassPair(Class cls) 
+  ```
 
-121-Runtime33-class面试题01.vep
++ 销毁一个类
 
-122-Runtime34-class面试题02.vep
+  ```objc
+  void objc_disposeClassPair(Class cls)
+  ```
 
-123-Runtime35-super面试题01.vep
++ 获取isa指向的Class
 
-124-Runtime36-super面试题02.vep
+  ```objc
+  Class object_getClass(id obj)
+  ```
 
-125-Runtime37-super面试题03.vep
++ 设置isa指向的Class
 
-126-Runtime38-super面试题04.vep
+  ```objc
+  Class object_setClass(id obj, Class cls)
+  ```
 
-127-Runtime39-super面试题05.vep
++ 判断一个OC对象是否为Class
 
-128-Runtime40-答疑.vep
+  ```objc
+  BOOL object_isClass(id obj)
+  ```
 
-day16
++ 判断一个Class是否为元类
 
-129-Runtime41-LLVM的中间代码.vep
+  ```objc
+  BOOL class_isMetaClass(Class cls)
+  ```
 
-130-Runtime42-API01-类.vep
++ 获取父类
 
-131-Runtime43-API02-成员变量01.vep
+  ```objc
+  Class class_getSuperclass(Class cls)
+  ```
 
-132-Runtime44-API02-成员变量02.vep
+### runtime API-成员变量  
 
-133-Runtime45-API02-成员变量03.vep
++ 获取一个实例变量信息
 
-134-Runtime46-API03-方法01.vep
+  ```objc
+  Ivar class_getInstanceVariable(Class cls, const char *name)
+  ```
 
-135-Runtime47-总结.ve
++ 拷贝实例变量列表（最后需要调用free释放）
 
-day17
+  ```objc
+  Ivar *class_copyIvarList(Class cls, unsigned int *outCount)
+  ```
 
-136-Runtime48-API03-方法02.vep
++ 设置和获取成员变量的值
 
-137-Runtime49-API03-方法03.vep
+  ```objc
+  void object_setIvar(id obj, Ivar ivar, id value)
+  ```
+
++ 动态添加成员变量（已经注册的类是不能动态添加成员变量的）
+
+  ```objc
+  BOOL class_addIvar(Class cls, const char * name, size_t size, uint8_t alignment, const char * types)
+  ```
+
++ 获取成员变量的相关信息
+
+  ```objc
+  const char *ivar_getName(Ivar v)
+  const char *ivar_getTypeEncoding(Ivar v)
+  ```
+
+### runtime API-属性
+
++ 获取一个属性
+
+  ```objc
+  objc_property_t class_getProperty(Class cls, const char *name)
+  ```
+
++ 拷贝属性列表（最后需要调用free释放）
+
+  ```objc
+  objc_property_t *class_copyPropertyList(Class cls, unsigned int *outCount)
+  ```
+
++ 动态添加属性
+
+  ```objc
+  BOOL class_addProperty(Class cls, const char *name, const objc_property_attribute_t *attributes,
+                    unsigned int attributeCount)
+  ```
+
++ 动态替换属性
+
+  ```objc
+  void class_replaceProperty(Class cls, const char *name, const objc_property_attribute_t *attributes,
+                        unsigned int attributeCount)
+  ```
+
++ 获取属性的一些信息
+
+  ```objc
+  const char *property_getName(objc_property_t property)
+  const char *property_getAttributes(objc_property_t property)
+  ```
+
+### runtime API-方法    
+
++ 获得一个实例方法、类方法
+
+  ```objc
+  Method class_getInstanceMethod(Class cls, SEL name)
+  Method class_getClassMethod(Class cls, SEL name)
+  ```
+
++ 方法实现相关操作
+
+  ```objc
+  IMP class_getMethodImplementation(Class cls, SEL name) 
+  IMP method_setImplementation(Method m, IMP imp)
+  void method_exchangeImplementations(Method m1, Method m2) 
+  ```
+
++ 拷贝方法列表（最后需要调用free释放）
+
+  ```objc
+  Method *class_copyMethodList(Class cls, unsigned int *outCount)
+  ```
+
++ 动态添加方法
+
+  ```objc
+  BOOL class_addMethod(Class cls, SEL name, IMP imp, const char *types)
+  ```
+
++ 动态替换方法
+
+  ```objc
+  IMP class_replaceMethod(Class cls, SEL name, IMP imp, const char *types)
+  ```
+
++ 获取方法的相关信息（带有copy的需要调用free去释放）
+
+  ```objc
+  SEL method_getName(Method m)
+  IMP method_getImplementation(Method m)
+  const char *method_getTypeEncoding(Method m)
+  unsigned int method_getNumberOfArguments(Method m)
+  char *method_copyReturnType(Method m)
+  char *method_copyArgumentType(Method m, unsigned int index)
+  ```
+
++ 选择器相关
+
+  ```objc
+  const char *sel_getName(SEL sel)
+  SEL sel_registerName(const char *str)
+  ```
+
++ 用block作为方法实现
+
+  ```objc
+  IMP imp_implementationWithBlock(id block)
+  id imp_getBlock(IMP anImp)
+  BOOL imp_removeBlock(IMP anImp)
+  ```
+
+  
+
+### Runtime API使用
+
+#### 简单使用类的API
+
+![](./images/runtime41.png)
+
+![](./images/runtime42.png)
+
+#### 简单使用成员变量的API
+
+![](./images/runtime43.png)
+
+### runtime的应用
+
+#### 查看私有成员变量
+
+![](./images/runtime44.png)
+
+#### 字典转模型
+
+```objc
+@implementation NSObject (Json)
++ (instancetype)mj_objectWithJson:(NSDictionary *)json
+{
+    id obj = [[self alloc] init];
+    unsigned int count;
+    Ivar *ivars = class_copyIvarList(self, &count);
+    for (int i = 0; i < count; i++) {
+        // 取出i位置的成员变量
+        Ivar ivar = ivars[i];
+        NSMutableString *name = [NSMutableString stringWithUTF8String:ivar_getName(ivar)];
+        [name deleteCharactersInRange:NSMakeRange(0, 1)];
+        // 设值
+        id value = json[name];
+        if ([name isEqualToString:@"ID"]) {
+            value = json[@"id"];
+        }
+        [obj setValue:value forKey:name];
+    }
+    free(ivars);
+    return obj;
+}
+
+@end
+```
+
+#### 替换方法实现
+
+![](./images/runtime45.png)
+
+```objc
+//hook点击操作，可记录所有点击行为
+@implementation UIControl (Extension)
+
++ (void)load
+{
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        // hook：钩子函数
+        Method method1 = class_getInstanceMethod(self, @selector(sendAction:to:forEvent:));
+        Method method2 = class_getInstanceMethod(self, @selector(mj_sendAction:to:forEvent:));
+        //交换实现之前，会清空方法缓存
+        method_exchangeImplementations(method1, method2);
+    });
+}
+- (void)mj_sendAction:(SEL)action to:(id)target forEvent:(UIEvent *)event
+{
+    NSLog(@"%@-%@-%@", self, target, NSStringFromSelector(action));
+    
+    // 调用系统原来的实现
+    [self mj_sendAction:action to:target forEvent:event];
+}
+
+@end
+```
+
+```objc
+@implementation NSMutableArray (Extension)
++ (void)load
+{
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        // 类簇：NSString、NSArray、NSDictionary，真实类型是其他类型
+        Class cls = NSClassFromString(@"__NSArrayM");
+        Method method1 = class_getInstanceMethod(cls, @selector(insertObject:atIndex:));
+        Method method2 = class_getInstanceMethod(cls, @selector(mj_insertObject:atIndex:));
+        method_exchangeImplementations(method1, method2);
+    });
+}
+- (void)mj_insertObject:(id)anObject atIndex:(NSUInteger)index
+{
+    if (anObject == nil) return;
+    [self mj_insertObject:anObject atIndex:index];
+}
+
+@end
+```
+
+```objc
+@implementation NSMutableDictionary (Extension)
+
++ (void)load
+{
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        Class cls = NSClassFromString(@"__NSDictionaryM");
+        Method method1 = class_getInstanceMethod(cls, @selector(setObject:forKeyedSubscript:));
+        Method method2 = class_getInstanceMethod(cls, @selector(mj_setObject:forKeyedSubscript:));
+        method_exchangeImplementations(method1, method2);
+
+        Class cls2 = NSClassFromString(@"__NSDictionaryI");
+        Method method3 = class_getInstanceMethod(cls2, @selector(objectForKeyedSubscript:));
+        Method method4 = class_getInstanceMethod(cls2, @selector(mj_objectForKeyedSubscript:));
+        method_exchangeImplementations(method3, method4);
+    });
+}
+
+- (void)mj_setObject:(id)obj forKeyedSubscript:(id<NSCopying>)key
+{
+    if (!key) return;
+    
+    [self mj_setObject:obj forKeyedSubscript:key];
+}
+
+- (id)mj_objectForKeyedSubscript:(id)key
+{
+    if (!key) return nil;
+    
+    return [self mj_objectForKeyedSubscript:key];
+}
+
+@end
+```
+
+
+
+### 面试题
+
++ 讲一下 OC 的消息机制？
+
+  - OC中的方法调用其实都是转成了objc_msgSend函数的调用，给receiver（方法调用者）发送了一条消息（selector方法名）
+  - objc_msgSend底层有3大阶段
+    - 消息发送（当前类、父类中查找）、动态方法解析、消息转发
+
++ 打印结果分别是什么？ 
+
+  ![](./images/runtime36.png)
+
+  ```objc
+  打印结果为
+  [self class] = MJStudent
+  [super class] = MJStudent
+  [self superclass] = MJPerson
+  [super superclass] = MJPerson
+  
+  1. 实质上，调用方法的receiver都是self
+  2. 通过消息发送机制，在NSObject中找到方法实现
+  3. NSObject对应的方法实现如下
+  
+     @implementation NSObject
+     - (Class)class
+     {
+        return object_getClass(self);
+     }
+     - (Class)superclass
+     {
+        return class_getSuperclass(object_getClass(self));
+     }
+     @end
+  ```
+
+  ```objc
+  打印结果为
+  res1:1
+  res2:0
+  res3:0
+  res4:0
+    
+  @implementation NSObject
+  //记住具体的实现
+  - (BOOL)isMemberOfClass:(Class)cls {
+      return [self class] == cls;
+  }
+  - (BOOL)isKindOfClass:(Class)cls {
+      for (Class tcls = [self class]; tcls; tcls = tcls->superclass) {
+          if (tcls == cls) return YES;
+      }
+      return NO;
+  }
+  + (BOOL)isMemberOfClass:(Class)cls {
+      //1. object_getClass((id)self)为元类
+      //2. cls为当前类的元类时，返回值才为YES。否则为NO
+      return object_getClass((id)self) == cls;
+  }
+  + (BOOL)isKindOfClass:(Class)cls {
+      //1. object_getClass((id)self)获取self的元类
+      //2. 然后遍历获取superclass
+      //3. 根据继承体系，元类的superclass指针指向NSObject类
+      //4. 所以只要是继承于NSObject的类，返回值都为YES
+      for (Class tcls = object_getClass((id)self); tcls; tcls = tcls->superclass) {
+          if (tcls == cls) return YES;
+      }
+      return NO;
+  }
+  @end
+    
+  1. 对于[[NSObject class] isKindOfClass:[NSObject class]]?
+      //1. object_getClass((id)self)获取NSObject的元类
+      //2. 然后遍历获取superclass
+      //3. 根据继承体系，元类的superclass指针指向NSObject类
+      //4. 所以只要是继承于NSObject的类，返回值都为YES
+  2. 对于[[NSObject class] isMemberOfClass:[NSObject class]]?
+      //1. object_getClass((id)self)为NSObject的元类
+      //2. cls为NSObject的元类时，返回值才为YES。否则为NO
+  3. 对于[[MJPerson class] isKindOfClass:[MJPerson class]])?  
+      //1. object_getClass((id)self)获取MJPerson的元类
+      //2. [MJPerson class]不等于获取MJPerson的元类
+      //3. 根据superclass指针遍历后，NSObject != MJPerson,返回值为false
+  4. 对于[[MJPerson class] isMemberOfClass:[MJPerson class]]?
+      //1. object_getClass((id)self)获取MJPerson的元类
+      //2. [MJPerson class]不等于获取MJPerson的元类,直接返回false
+  ```
+
++ 以下代码能不能执行成功？如果可以，打印结果是什么？
+
+  ![](./images/runtime37.png)
+
+  ```
+  打印结果为:
+  my name is <ViewController: 0x157e09780>
+  
+   1.print为什么能够调用成功？
+   2.为什么self.name变成了ViewController?
+  ```
+
+  + 假如是一个正常的person对象调用print方法
+
+    ```objc
+    MJPerson *person =  [[MJPerson alloc] init];
+    [person print];
+    ```
+
+    ![](./images/runtime38.png)
+
+    ```
+    1. person内指针存储person对象的地址
+    2. 取peson实例对象的前8个字节作为isa去得到MJPerson类的地址，进行方法调用
+    ```
+
+    ```objc
+    id cls =  [MJPerson class];
+    void *objc = &cls;
+    [(__bridge id)objc print];
+    ```
+
+    ![](./images/runtime39.png)
+
+    ```
+    1. objc指针存放 Class的地址
+    2. cls中存放就是[MJPerson class]的地址
+    3. 取cls的前8个字节当做isa，去获取MJPerson类的地址, isa = 类地址, (isa & ISA_MASK) = 类地址
+    4. 所以能够找到print方法进行调用
+    ```
+
+    ```objc
+    [super viewDidLoad]这句代码会转化为下面的形式
+    struct abc = {
+         self,
+         [ViewController class]
+    };
+    objc_msgSendSuper2(abc, sel_registerName("viewDidLoad"));
+    
+    因此，栈内存结构为
+    ```
+
+    ![](./images/runtime40.png)
+
+    ```objc
+    @implementation MJPerson
+    - (void)print
+    {
+        NSLog(@"my name is %@", self.name);
+    }
+    @end
+    _name的获取就是从第9个字节开始，取8个字节作为name指针的值，因此取得值正好是self指针，因此打印出<ViewController: 0x157e09780>
+    ```
+
+    
+
+
+
