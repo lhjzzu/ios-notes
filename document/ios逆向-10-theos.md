@@ -30,7 +30,7 @@
 - 在.bash_profile文件后面加入以下两行
 
   ```shell
-  export THEOS=~/thos
+  export THEOS=~/theos
   export PATH=$THEOS/bin:$PATH
   ```
 

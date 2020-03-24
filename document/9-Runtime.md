@@ -28,7 +28,7 @@
   ```powershell
   例如:二进制数据 0b1010中取出某一位
   
-  取出倒数第二位:0
+  取出倒数第一位:0
     1010  值
   & 0001  掩码 1 << 0
    -------
@@ -477,12 +477,12 @@ typedef enum {
 
   - 存储着Class、Meta-Class对象的内存地址信息
 
-  - `bits & ISA_MASK`的到Class、Meta-Class的内存地址
+  - `bits & ISA_MASK`得到Class、Meta-Class的内存地址
 
     ```
     ISA_MASK为0x0000000ffffffff8ULL,其最后四位为1000。
     所以，Class、Meta-Class的内存地址的二进制位的最后三位一定为0。
-    因此地址的十六表示的最后一位为0或0
+    因此地址的十六表示的最后一位为0或8
     ```
 
     ![](./images/runtime4.png)
@@ -997,7 +997,7 @@ typedef enum {
      //   _cmd & mask计算出的该SEL在缓存数组buckets中的位置，所以要获得该位置的地址需要偏移
      //   (_cmd & mask)*sizeof(bucket_t)个字节 
      //   (_cmd & mask)*sizeof(bucket_t) = (_cmd & mask) * 16 == ((_cmd & mask)<<4)
-     //   因此 此时x12的值为该方法对应的缓存地址
+     //   因此 此时x12的值为该方法对应的bucket_t地址
    	add	x12, x10, x12, LSL #4	
      // 6. 通过x12取出bucket,并将_key放到x9中, 将_IMP放到x17中
    	ldp	x9, x17, [x12]		// {x9, x17} = *bucket
@@ -1198,7 +1198,7 @@ typedef enum {
        // Try this class's cache.
        // 第一阶段:消息发送
        // 从缓存中查找方法
-       imp = cache_getImp(cls, sel);
+       imp = cache_getImp(cls, sel); //实际上走的也是CacheLookup NORMAL汇编
        // 如果找到imp，返回imp
        if (imp) goto done;
    
@@ -1554,10 +1554,10 @@ typedef enum {
    $ xcrun  -sdk  iphoneos  clang  -arch  arm64  -rewrite-objc MJStudent.m -o MJStudent-arm64.cpp
    ```
 
-   ```c++
+   ```objc
    struct objc_super {
-       __attribute__((objc_ownership(none))) _Nonnull id receiver;
-       __attribute__((objc_ownership(none))) _Nonnull Class super_class;
+       id receiver;
+       Class super_class;
    };
    
    static void _I_MJStudent_run(MJStudent * self, SEL _cmd) {
@@ -1577,7 +1577,7 @@ typedef enum {
    	UNWIND _objc_msgSendSuper, NoFrame
    	MESSENGER_START
    
-     //1. x0:real receiver  x16:class, class == receiver对应类的superclass
+     //1. x0:real receiver  x16:class (receiver的父类), class == receiver对应类的superclass
    	ldp	x0, x16, [x0]		
      //2. 此时从superclass中开始执行消息机制
    	CacheLookup NORMAL
@@ -1596,11 +1596,17 @@ typedef enum {
 2. objc_msgSendSuper2的arm64汇编代码如下
 
    ```objc
+   struct objc_super2 {
+       id receiver;
+       Class current_class;
+   }
+     //此时的x0是super2的结构
+   
      ENTRY _objc_msgSendSuper2
    	UNWIND _objc_msgSendSuper2, NoFrame
    	MESSENGER_START
    
-     //1. x0: real receiver, x16 = class
+     //1. x0: real receiver, x16 = class (receiver对应的类)
    	ldp	x0, x16, [x0]		
      //2. #SUPERCLASS为#0x8 
      //   x16指向的内存偏移8个字节后，取8个字节放在x16中

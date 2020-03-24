@@ -1,7 +1,5 @@
 ## OC对象的分类
 
-
-
 + Objective-C中的对象，简称OC对象，主要可以分为3种
   - instance对象（实例对象）
   - class对象（类对象）
@@ -73,7 +71,7 @@
 
     - 其结构体相当于
 
-      ```
+      ```c
       struct MJStudent_IMPL {
           Class isa;
           int _age;
@@ -91,7 +89,7 @@
 
 ![](./images/OC对象的分类4.png)
 
-+ objectClass1 ~ objectClass5都是NSObject的class对象（类对象）
++ objectClass1 ~ objectClass6都是NSObject的class对象（类对象）
 
 + 它们是同一个对象。每个类在内存中有且只有一个class对象
 
@@ -132,7 +130,7 @@
 
 - 64位后，isa和ISA_MASK做位运算之后，得到真正的class或meta-class的地址
 
-  ```objective-c
+  ```c
   # if __arm64__
   #   define ISA_MASK        0x0000000ffffffff8ULL
   # elif __x86_64__
@@ -167,7 +165,7 @@
 
   - 返回的就是类对象
 
-    ```
+    ```objc
      - (Class) {
        return self->isa;
      }

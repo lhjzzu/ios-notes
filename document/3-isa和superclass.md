@@ -365,7 +365,7 @@
 
   2. 使用MJClassInfo探究其结构
 
-     ```
+     ```objc
      int main(int argc, const char * argv[]) {
          @autoreleasepool {
              mj_objc_class *personClass = (__bridge mj_objc_class *)([MJPerson class]);

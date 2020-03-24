@@ -799,7 +799,7 @@
   - objc-os.mm
     - _objc_init
     - load_images
-  - prepare_load_methods: 准备可调用load方法的类和分裂
+  - prepare_load_methods: 准备可调用load方法的类和分类
     - schedule_class_load: 准备可调用load方法的类，先准备父类，再准备子类
     - add_class_to_loadable_list: 将可调用load方法的类加入到[loadable_class]数组中
     - add_category_to_loadable_list:将可调用load方法的分类加入到[loadable_category]数组中
@@ -954,10 +954,8 @@
   //调用
   [MJStudent alloc];
   
-  //结果
-  MJPerson +initialize
-  MJPerson +initialize
-    
+  
+  
     
   //情形2
   @implementation MJPerson
@@ -975,8 +973,9 @@
   [MJStudent alloc];
   
   //结果
-  MJPerson  +initialize
-  MJStudent +initialize
+  MJPerson +initialize
+  MJPerson +initialize
+    
   ```
 
   

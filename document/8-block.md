@@ -165,6 +165,9 @@
           //不能在外面修改block内部捕获的变量的值
           int age = 10;
           void (^block)(void) =  ^{
+              //age = 20 
+              //错误，不能在内部修改变量
+              //Variable is not assignable (missing __block type specifier)
               NSLog(@"age is %d", age);
           };
           age = 20;
@@ -232,6 +235,7 @@
           //能够在外部修改block内部捕获的变量的值
           static int age = 10;
           void (^block)(void) =  ^{
+              // 可以在内部修改 age = 30;
               NSLog(@"age is %d", age);
           };
           age = 20;
@@ -645,10 +649,6 @@
 ```
 
 - 通过__strong可以暂时保住self的命
-
-
-
-
 
 ### 面试题
 

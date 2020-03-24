@@ -141,7 +141,7 @@ $ size -l -m -x TestMachO_arm64
 
    ![](./images/ASLR12.png)
 
-   - 通过上图可知，调用touchesBegan_TableView:withEvent:函数的地址为`0x1023ca14c`
+   - 通过上图可知，**调用**`touchesBegan_TableView:withEvent:函数`的函数地址为`0x1023ca14c`
 
    - 通过计算我们可以得出该函数hopper中地址，以及在Mach-O文件中的偏移。
 

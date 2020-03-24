@@ -37,13 +37,13 @@
 
 + NSObject的定义
 
-+ ```objective-c
+  ```java
   @interface NSObject <NSObject> {
       Class isa;
   }
   
   //Class是object_class结构体指针
-  typedef Struct object_class *Class;
+  typedef Struct object_class * Class;
   ```
 
   - NSObject对象中，包含一个isa指针，指向所属的类对象
@@ -108,7 +108,6 @@
     malloc_size((__bridge const void *)obj);
     ```
 
-    
 
 ### NSObject对象内存布局
 
