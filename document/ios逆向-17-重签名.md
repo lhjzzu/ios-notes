@@ -18,7 +18,7 @@
    + 可以去开发者中心去创建，然后下载下来
    
 2.  从embedded.mobileprovision文件中提取出entitlements.plist权限文件
-   
+  
    ```shell
    $ security cms -D -i  embedded.mobileprovision > temp.plist
    $ /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' temp.plist > entitlements.plist
@@ -31,7 +31,7 @@
    
      1) F9243741EE8F7C93BDBC7014C4DB153DC517CE57 "iPhone Developer: lhjzzu@163.com (572GZQJ63T)" (CSSMERR_TP_CERT_REVOKED)
      2) 69134CF2D655514BE57A24464558B5B2F9CC3C0D "iPhone Developer: lhj 刘 (4KMSA98VYA)"
-     3) C0C80FBECA51C9496966D433AE1E3EAC0EA4944F "iPhone Distribution: Hangzhou DanYue Technology Co.Ltd. (9BK7Q35648)"
+     3) C0C80FBECA51C9496966D433AE1E3EAC0EA4944F "iPhone Distribution: Hangzhou xxxx Technology Co.Ltd. (xxx)"
    
    ```
 
@@ -41,7 +41,7 @@
    $ codesign -fs 69134CF2D655514BE57A24464558B5B2F9CC3C0D xxx.dylib
    $ codesign -fs 69134CF2D655514BE57A24464558B5B2F9CC3C0D xxx.framewok
    $ codesign -fs 69134CF2D655514BE57A24464558B5B2F9CC3C0D xxx.appex
-     ```
+   ```
 
 5.  对xxx.app包进行重签名
 
@@ -98,7 +98,7 @@
 
 ### 动态库注入到可执行文件
 
-+ 可以使用insert_dylib库将动态库注入到Mach-o文件中
++ 可以使用insert_dylib库将动态库注入到Mach-O文件中
 
   1. 下载https://github.com/Tyilo/insert_dylib
   2. 选择scheme->release编译生成insert_dylib可执行文件,然后把insert_dylib放到`/usr/local/bin`目录下，即可全局使用insert_dylib命令
@@ -138,7 +138,7 @@ $ otool -L Mach-O文件
 
    ```shell
   $ install_name_tool -change 旧地址 新地址 Mach-O文件
-   ```
+  ```
 
 + 通过Theos开发的动态库插件
 
@@ -262,7 +262,7 @@ $ otool -L Mach-O文件
 
 ### 问题
 
-1. 安装成功后运行crash，crash文件中AFNetworking: mremap_encrypted() => -1, errno=12
+1. 假如安装成功后运行crash，crash文件中AFNetworking: mremap_encrypted() => -1, errno=12
 
    ```
    1. 这表示AFNetworking仍然处于加密状态
