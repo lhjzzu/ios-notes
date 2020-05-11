@@ -425,16 +425,6 @@
 
   ![](./images/runloop10.png)
 
-149-Runloop12-线程保活01.vep
-
-150-Runloop13-线程保活02.vep
-
-151-Runloop14-线程保活03.vep
-
-152-Runloop15-线程保活04.vep
-
-153-Runloop16-答疑.vep
-
 ### 线程的封装
 
 + runloop随着线程的存活而存活，随着线程的销毁而销毁

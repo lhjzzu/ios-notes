@@ -255,7 +255,7 @@ $ size -l -m -x TestMachO_arm64
    ```
    image list -o -f | grep TestData
    
-   [  0] 0x0000000000060000 /Users/liuhuajian/Library/Developer/Xcode/DerivedData/TestData-bxnczdvzbuclucdmuscfocwjpjxp/Build/Products/Debug-iphoneos/TestData.app/TestData
+   [  0] 0x0000000000080000 /Users/liuhuajian/Library/Developer/Xcode/DerivedData/TestData-bxnczdvzbuclucdmuscfocwjpjxp/Build/Products/Debug-iphoneos/TestData.app/TestData
    ```
 
    ![](./images/ASLR17.png)
@@ -289,4 +289,5 @@ $ size -l -m -x TestMachO_arm64
 
    - 所以a1,a2,b1,b2,d1,d2这些未初始化以及初始化为0的数据没有放在`__DATA`的`__data`section中。
 
-   - 而是紧挨着`__DATA`的`__data`section放置的。
+   - 未初始化的全局变量和静态变量信息是放在.bss中，等待加载到内存中后再分配
+

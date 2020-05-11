@@ -380,7 +380,7 @@ static void perform_rebinding_with_section(struct rebindings_entry *rebindings,
 ### 总结
 
 1. rebind_symbols_for_image
-   + 找到对应image的`symtab`，`dysymtab`,` indirect_symtab`, 以及`section_header(__DATA, __got)`, `section_header(__DATA, __nl_symbol_ptr)`, `section_header(__DATA, __la_symbol_ptr)`
+   + 找到对应image的`symtab`，`strtab`,`dysymtab`, 以及`section_header(__DATA, __got)`, `section_header(__DATA, __nl_symbol_ptr)`, `section_header(__DATA, __la_symbol_ptr)`
 2. perform_rebinding_with_section
    - 通过`section_header`和`symtab`, `dysymtab`, ` indirect_symtab`找到`section(__DATA, __got)`, `section(__DATA, __nl_symbol_ptr)`, `section(__DATA, __la_symbol_ptr)`中对应符号的地址，并用rebinding中replacement替换对应符号的地址，然后将真实的符号地址赋值给replaced
 

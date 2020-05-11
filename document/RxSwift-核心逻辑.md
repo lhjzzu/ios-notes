@@ -12,7 +12,7 @@ let observable = Observable<String>.create {
       }
 //2: 订阅序列
 observable.subscribe(onNext: { (text) in
-                print("订阅到:\(text)")
+        print("订阅到:\(text)")
 })
             
         
@@ -484,11 +484,68 @@ class ObserverBase<ElementType> : Disposable, ObserverType {
     public func subscribe(onNext: ((E) -> Void)? = nil, onError: ((Swift.Error) -> Void)? = nil, onCompleted: (() -> Void)? = nil, onDisposed: (() -> Void)? = nil)
    ```
 
+### PublishSubject
+
++ 其既是Observable, 也是ObserverType
+
+  ```swift
+  public final class PublishSubject<Element>
+      : Observable<Element>
+      , SubjectType
+      , Cancelable
+      , ObserverType
+      , SynchronizedUnsubscribeType {
+      ...
+      ...
+   }
+  ```
+
++ 将PublishSubject作为可观察者，然后它作为观察者可以触发onNext方法
+
+  ```swift
+  var dataSourceObservable = PublishSubject<(OSScheduleModel?,Error?)>()
+  dataSourceObservable.onNext((model,nil))
+  ```
+
++ 在其onNext方法内部，实际上通知其他的观察者来执行onNext方法
+
+  ```swift
+  public func on(_ event: Event<Element>) {
+          #if DEBUG
+              self._synchronizationTracker.register(synchronizationErrorMessage: .default)
+              defer { self._synchronizationTracker.unregister() }
+          #endif
+          dispatch(self._synchronized_on(event), event)
+      }
+  
+      //获取事件对应的Observers
+      func _synchronized_on(_ event: Event<Element>) -> Observers {
+          self._lock.lock(); defer { self._lock.unlock() }
+          switch event {
+          case .next:
+              if self._isDisposed || self._stopped {
+                  return Observers()
+              }
+               //返回Observers
+              return self._observers
+          case .completed, .error:
+              if self._stoppedEvent == nil {
+                  self._stoppedEvent = event
+                  self._stopped = true
+                  let observers = self._observers
+                  self._observers.removeAll()
+                  return observers
+              }
+              return Observers()
+          }
+      }
+  ```
+
 ### 简单总结
 
 1. 通过`create`返回一个可观察序列`Observable`， 其实质是一个`AnonymousObservable`，并保存一个接收`AnyObserver`对象的闭包。 通过`AnyObserver`来观察`Observable序列`变化，从而在合适的时机，通过不同的事件，将消息(数据)传递给外界
 
-2. 通过 `subscribe(onNext: onError:  onCompleted: onDisposed:)`方法进行订阅时，其内部创建了一个匿名的观察者(`AnonymousObserver`),并最终生成了一个`AnyObserver`对象，并将`AnyObserver`对象对象传递给`Observable`的 闭包。 该`AnyObserver`对象通过不同事件来传递数据时，其内部实质上是通过`AnonymousObserver`来使用对应的事件来传递数据，并触发创建AnonymousObserver时传入的闭包，从而根据不同的事件触发`subscribe(onNext: onError:  onCompleted: onDisposed:)`执行时，传入的对应的闭包。
+2. 通过 `subscribe(onNext: onError:  onCompleted: onDisposed:)`方法进行订阅时，其内部创建了一个匿名的观察者(`AnonymousObserver`),并最终生成了一个`AnyObserver`对象, 通过`AnonymousObservableSink`将Observable和`AnyObserver`关联起来,并将`AnyObserver`对象对象传递给`Observable`的 闭包。 该`AnyObserver`对象通过不同事件来传递数据时，其内部实质上是通过`AnonymousObserver`来使用对应的事件来传递数据，并触发创建AnonymousObserver时传入的闭包，从而根据不同的事件触发`subscribe(onNext: onError:  onCompleted: onDisposed:)`执行时，传入的对应的闭包。
 
    ```swift
    observer.onNext("哈哈哈")

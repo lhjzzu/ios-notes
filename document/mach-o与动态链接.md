@@ -178,7 +178,7 @@
 
   ![](./images/mach-o与动态链接3.png)
 
-### Section(\_\_TEXT, \_\_text 里的外部符号
+### Section(\_\_TEXT, \_\_text)里的外部符号
 
 ![](./images/mach-o与动态链接4.png)
 
@@ -216,8 +216,8 @@ mov  dword ptr [rbp -4], 0
 mov  rdi, qword ptr [rax]
 # rip此时为0x1FB0, [rip + 0x2e] = [0x1FDE] 
 # 由上图可知0x1FDE，存放的是Jack
-# lea指令即为将rip + 0x2e赋值给rdi, rdi存放0x1FDE
-lea  rdi, qword ptr [rip + 0x2e]
+# lea指令即为将rip + 0x2e赋值给rdi, rsi存放0x1FDE
+lea  rsi, qword ptr [rip + 0x2e]
 # 该指令本应该调用的是say函数的地址
 # 此时跳转到0x1fbe，0x1fbe位置的指令是什么?
 call 0x1fbe
@@ -230,7 +230,7 @@ pop  rbp
 ret
 ```
 
-- 从上面的分析我们可知，跟Section(_TEXT, _text)重定位相关的信息位于section(__DATA __got) 和 section(__TEXT __stubs)
+- 从上面的分析我们可知，跟`Section(__TEXT, __text)`重定位相关的信息位于`section(__DATA, __got) `和 `section(__TEXT,__stubs)`
 
 - Mach-O 的代码段对 dylib 外部符号的引用地址，要么指向到`__got`，要么指向到`__stubs`
 
@@ -252,52 +252,53 @@ ret
   struct section_64 { /* for 64-bit architectures */
       char      sectname[16];    /* name of this section */
       char      segname[16];     /* segment this section goes in */
-      
+      ...
+      ...
       //其reserved1描述了该list中第一个条目在indirect symbol table 中的偏移量。
       uint32_t  reserved1;       /* reserved (for offset or index) */
       uint32_t  reserved2;       /* reserved (for count or sizeof) */
       uint32_t  reserved3;       /* reserved */
   };
-  ```
-
-  - 对于`__got`、、`__nl_symbol_ptr`、`__la_symbol_ptr` 、`__stubs`这几个 section，其reserved1描述了该 list 中条目在 indirect symbol table 中的偏移量。
-
+```
+  
+- 对于`__got`、`__nl_symbol_ptr`、`__la_symbol_ptr` 、`__stubs`这几个 section header，其reserved1描述了该 list 中条目在 indirect symbol table 中的偏移量。
+  
     ```c
     //伪代码如下
     
     //对于Section(__DATA,__got)， 其每个条目对应的符号如下，当动态链接完成时，符号的地址确定，此时更新对应的条目的内容为对应符号的地址
     __got[0]->symbol = symbolTable[indirectSymbolTable[__got.sectionHeader.reserved1]]
-    __got[1]->symbol = symbolTable[indirectSymbolTable[__got.sectionHeader.reserved1]]
+    __got[1]->symbol = symbolTable[indirectSymbolTable[__got.sectionHeader.reserved1 + 1]]
     ....
     ....
      
     //对于Section(__DATA,__nl_symbol_ptr), 其每个条目对应的符号如下，当动态链接完成时，符号的地址确定，此时更新对应的条目的内容为对应符号的地址
     __nl_symbol_ptr[0]->symbol = symbolTable[indirectSymbolTable[__nl_symbol_ptr.sectionHeader.reserved1]]
-    __nl_symbol_ptr[1]->symbol = symbolTable[indirectSymbolTable[__nl_symbol_ptr.sectionHeader.reserved1]]
+    __nl_symbol_ptr[1]->symbol = symbolTable[indirectSymbolTable[__nl_symbol_ptr.sectionHeader.reserved1 + 1]]
     ....
     ....
       
     //对于Section(__DATA,__la_symbol_ptr), 其每个条目对应的符号如下，当动态链接完成时，符号的地址确定，此时更新对应的条目的内容为对应符号的地址
     __la_symbol_ptr[0]->symbol = symbolTable[indirectSymbolTable[__la_symbol_ptr.sectionHeader.reserved1]]
-    __la_symbol_ptr[1]->symbol = symbolTable[indirectSymbolTable[__la_symbol_ptr.sectionHeader.reserved1]]
+    __la_symbol_ptr[1]->symbol = symbolTable[indirectSymbolTable[__la_symbol_ptr.sectionHeader.reserved1 + 1]]
     ....
     ....
     
     //对于Section(__TEXT,__stubs),其每个条目对应的符号如下，当动态链接完成时，符号的地址确定，此时更新对应的条目的内容为对应符号的地址
     __stubs[0]->symbol = symbolTable[indirectSymbolTable[__stubs.sectionHeader.reserved1]]
-    __stubs[1]->symbol = symbolTable[indirectSymbolTable[__stubs.sectionHeader.reserved1]]
+    __stubs[1]->symbol = symbolTable[indirectSymbolTable[__stubs.sectionHeader.reserved1 + 1]]
     ....
     ....
-    ```
-
-    ![](./images/mach-o与动态链接8.png)
-
-    ![](./images/mach-o与动态链接9.png)
-
-    ![](./images/mach-o与动态链接10.png)
-
-    ![](./images/mach-o与动态链接11.png)
-
+  ```
+  
+  ![](./images/mach-o与动态链接8.png)
+  
+  ![](./images/mach-o与动态链接9.png)
+  
+  ![](./images/mach-o与动态链接10.png)
+  
+  ![](./images/mach-o与动态链接11.png)
+  
     ![](./images/mach-o与动态链接12.png)
 
 ### section(\_\_TEXT， \_\_stubs)
@@ -347,8 +348,8 @@ ret
 
   ![](./images/mach-o与动态链接14.png)
 
-  - `Section64(__DATA, _nl_symbol_ptr)`存放的是一系列地址， `__nl_symbol_ptr.sectionHeader.reserved1 = 1`,通过经过上面的分析， `0x2000`位置对应的符号为`dyl_stub_binder`
-  - 因此要找到say函数的地址，先要调用dyld的`dyl_stub_binder`函数，然后获得得到say函数的地址，更新到section(\_\_DATA ,\_\_la_symbol_ptr)的对应的条目中
+  - `Section64(__DATA, _nl_symbol_ptr)`存放的是一系列地址， `__nl_symbol_ptr.sectionHeader.reserved1 = 1`,通过经过上面的分析， `0x2000`位置对应的符号为`dyld_stub_binder`
+  - 因此要找到say函数的地址，先要调用dyld的`dyld_stub_binder`函数，然后获得得到say函数的地址，更新到section(\_\_DATA ,\_\_la_symbol_ptr)的对应的条目中
 
 ### Lazy Binding 分析
 
@@ -395,6 +396,7 @@ ret
   5. `dyld_stub_binder`跳转到`_say`符号的真实地址
 
 + 再次访问`_say`时
+  
   - stub 里的 jmp 指令直接跳转符号的真实地址，因为该地址已经被写到`__la_symbol_ptr`条目中。
 
 ### 总结
@@ -419,4 +421,10 @@ ret
     ```
     某个条目对应哪个符号的寻找过程，跟__got的一样
     ```
+
+### 对iOS动态库的一些理解
+
+1. framework工程创建后，可以选择Mach-O Type是 Static Library或是 Dynamic Library
+2. 假如选择的是Static Library,此时生成的`xx.framework`是静态库，会静态链接到可执行文件中
+3. 假如选择的是Dynamic Library,此时生成的`xx.framework`是动态库，需要在Xcode中指定该动态库是Embed, 打包后，该动态库最终存放到`.app`文件的`Frameworks`目录中。
 
