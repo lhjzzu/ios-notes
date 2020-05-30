@@ -645,6 +645,48 @@
 
 - 通过__strong可以暂时保住self的命
 
+### 总结
+
+1. block本质上是封装了函数调用及调用环境的OC对象
+
+   ```objc
+   struct __main_block_impl_0 {
+     void *isa;
+     int Flags;
+     int Reserved;
+     void *FuncPtr;
+     size_t reserved;
+     size_t Block_size;
+     void (*copy)(void*, void*);
+     void (*dispose)(void*)
+     variables
+   }
+   ```
+
+2. 变量捕获
+
+   1. 捕获auto变量
+      - 值传递
+      - 不能在block内部修改变量本身
+      - 在外部的修改变量不影响内部的变量
+   2. 捕获static变量
+      - 地址传递
+      - 可以在block内部修改变量本身
+      - 可以在外部的修改变量
+   3. 捕获__block修饰的变量
+      - 被包装成一个OC对象
+      - 变量本身被值传递到这个OC对象内部
+      - 可以在block内部修改变量本身
+      - 可以在外部的修改变量
+
+3. 不捕获全局变量
+
+4. block在mrc下被copy修饰，在arc下被strong和copy修饰， 最终被copy到堆上
+
+5. 通过__weak修饰self，解决循环引用问题
+
+   - block内部被copy到堆上时，会根据被捕获的对象的修饰符(`__weak`, `__strong`)，对对象进行内存管理
+
 ### 面试题
 
 + block的原理是怎样的？本质是什么？
